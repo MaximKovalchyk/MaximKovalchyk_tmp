@@ -55,7 +55,8 @@ window.addEventListener('load', function load(ev) {
     97: 'left',
     100: 'right',
     115: 'down',
-    32: 'turn'
+    32: 'turn',
+    116: 'turn',
   });
 });
 
