@@ -39,10 +39,29 @@ window.addEventListener('load', function load(ev) {
   };
 
   view.youLose = function(score) {
-    function youLose() {
-      window.alert("YOU LOSE! Score: " + score);
+    var index,
+      message = "Game over! Your score: " + score,
+      results = [];
+
+    if (window.localStorage && window.localStorage.results) {
+      results = JSON.parse(window.localStorage.results);
     }
-    window.setTimeout(youLose, 0);
+
+    index = results.findIndex(function(el) {
+      return el === score;
+    });
+    if (index === -1) {
+      results.push(score);
+    }
+
+    message = "Game over! Your scores:\n" + results.sort().reverse().join('\n');
+
+    if (window.localStorage) {
+      window.localStorage.results = JSON.stringify(results);
+    }
+
+
+    window.setTimeout(alert.bind(window, message), 0);
   };
 
   var model = new TetrisModel({
@@ -51,12 +70,13 @@ window.addEventListener('load', function load(ev) {
     view: view
   });
 
-  var controller = new keypressController(body, model.moveBlock.bind(model), {
+  var controller = new keypressController(body, model.dispatch.bind(model), {
     97: 'left',
     100: 'right',
     115: 'down',
     32: 'turn',
     116: 'turn',
+    112: 'pause'
   });
 });
 
@@ -153,6 +173,14 @@ AsyncCycle.prototype.stop = function() {
   clearTimeout(this.id);
 };
 
+TetrisModel.prototype.dispatch = function(dispatch) {
+  if (dispatch === 'pause') {
+    this.pause = !this.pause;
+  } else if (!this.pause) {
+    this.moveBlock(dispatch);
+  }
+};
+
 TetrisModel.prototype.moveBlock = function(moveName) {
   if (this.tetrisBlock) {
     oldBlock = this.tetrisBlock;
@@ -186,28 +214,30 @@ TetrisModel.prototype.startCicle = function(fn) {
 
 TetrisModel.prototype.gameMove = function() {
   var tetrisBlock, score;
-  if (this.tetrisBlock) {
-    //if can move block - move
-    //else add tetrisBlock on next move
-    if (!this.moveBlock('down')) {
-      score = this.field.burnLines(this.tetrisBlock);
-      this.updateScore(score);
-      this.tetrisBlock = null;
-    }
-  } else {
-    //if game field can place block - create
-    tetrisBlock = TetrisBlock.createRandom({
-      x: Math.floor(this.field.width / 2),
-      y: 0
-    });
-    if (this.field.canPlaceBlock(tetrisBlock)) {
-      this.tetrisBlock = tetrisBlock;
-      this.field.placeBlock(this.tetrisBlock);
+  if (!this.pause) {
+    if (this.tetrisBlock) {
+      //if can move block - move
+      //else add tetrisBlock on next move
+      if (!this.moveBlock('down')) {
+        score = this.field.burnLines(this.tetrisBlock);
+        this.updateScore(score);
+        this.tetrisBlock = null;
+      }
     } else {
-      this.gameOver();
+      //if game field can place block - create
+      tetrisBlock = TetrisBlock.createRandom({
+        x: Math.floor(this.field.width / 2),
+        y: 0
+      });
+      if (this.field.canPlaceBlock(tetrisBlock)) {
+        this.tetrisBlock = tetrisBlock;
+        this.field.placeBlock(this.tetrisBlock);
+      } else {
+        this.gameOver();
+      }
     }
+    this.print();
   }
-  this.print();
 };
 
 TetrisModel.prototype.updateScore = function(scoreDif) {
@@ -226,6 +256,7 @@ TetrisModel.prototype.gameOver = function() {
 
 function TetrisModel(args) {
   this.view = args.view;
+  this.pause = false;
   this.SPEED = args.SPEED || 1;
   this.tetrisBlock = null;
   this.score = 0;
